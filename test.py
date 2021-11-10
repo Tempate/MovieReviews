@@ -15,14 +15,18 @@ with open("imdb_dataset.csv") as dataset:
         data.append((info.group(1), info.group(2)))
 
 
-training = len(data) * 4 // 5
+random.shuffle(data)
+data = data[:5000]
 
-train_data = data[:training]
-test_data  = data[training:]
+chunk = len(data) // 5
+
+training_data   = data[:chunk * 3]
+validating_data = data[chunk * 3:chunk * 4]
+testing_data    = data[chunk * 4:]
 
 chain = Chain(data)
 network = Network(chain)
 
-print("Accuracy before training:", network.run(test_data))
-network.train(train_data)
-print("Accuracy after training:", network.run(test_data))
+print("Accuracy before training:", network.run(testing_data))
+network.train(training_data, validating_data)
+print("Accuracy after training:", network.run(testing_data))
