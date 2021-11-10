@@ -1,15 +1,24 @@
 import torch.nn.functional as F
 import torch.nn as nn
+import torch
 
 
 class Classifier(nn.Module):
     def __init__(self, chain):
         super(Classifier, self).__init__()
 
-        # Initialize the affine map
-        self.linear = nn.Linear(chain.vocab_size, chain.num_labels)
+        self.function1 = nn.Linear(chain.vocab_size, 16)
+        self.activation1 = nn.ReLU()
 
-    def forward(self, bow_vec):
-        # Pass the input through the linear layer and
-        # then through log_softmax for non-linearity
-        return F.log_softmax(self.linear(bow_vec), dim=1)
+        self.function2 = nn.Linear(16, 16)
+        self.activation2 = nn.ReLU()
+
+        self.function3 = nn.Linear(16, 1)
+        self.activation3 = nn.Sigmoid()
+
+    def forward(self, vector):
+        layer1 = self.activation1(self.function1(vector))
+        layer2 = self.activation2(self.function2(layer1))
+        layer3 = self.activation3(self.function3(layer2))
+
+        return (layer3[0]).float()
