@@ -50,10 +50,23 @@ def parse(dataset):
         text = info.group(1)
         label = info.group(2)
 
-        # Remove weird symbols and punctuation signs
-        text = re.sub('[^\p{L}]+', '', text)
-        
-        data.append((text.lower(), label))
+        # Replace html notation with a space
+        text = re.sub('<.*?>', ' ', text)
+
+        # Remove single quotes inside words
+        def remove_quotes(match):
+            text = match.group(0)
+            return text.replace('\'', '')
+                
+        text = re.sub('\p{L}\'\p{L}', remove_quotes, text) 
+
+        # Replace weird symbols with a space
+        text = re.sub('[^\p{L}]+', ' ', text)
+
+        # Remove duplicate spaces
+        text = re.sub('\p{Zs}{2,}', ' ', text)
+
+        data.append((text.lower().split(), label))
 
     return data
 

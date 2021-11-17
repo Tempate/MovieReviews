@@ -14,8 +14,13 @@ class Chain():
 
         for sentence, _ in data:
             for word in sentence:
-                if word not in self.word_to_key:
+                if word in self.word_to_key:
+                    continue
+
+                try:
                     self.word_to_key[word] = len(self.word_to_key)
+                except KeyError:
+                    pass
 
     def vectorize(self, sentence):
         # Match the number of times a word appears to its key
