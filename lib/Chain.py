@@ -1,3 +1,5 @@
+from sklearn.feature_extraction.text import TfidfVectorizer
+
 import torch
 
 
@@ -9,10 +11,12 @@ class Chain():
         self.num_labels = len(self.label_to_key)
         self.vocab_size = len(self.word_to_key)
 
+        self.vectorizer = TfidfVectorizer()
+
     def words_to_keys(self, data):
         self.word_to_key = {}
 
-        for sentence, _ in data:
+        for sentence, label in data:
             for word in sentence:
                 if word in self.word_to_key:
                     continue
@@ -22,14 +26,35 @@ class Chain():
                 except KeyError:
                     pass
 
-    def vectorize(self, sentence):
-        # Match the number of times a word appears to its key
-        count = torch.zeros(len(self.word_to_key))
+    def vectorize(self, data, mode):
+        texts, labels = zip(*data)
+        
+        vectors = self.make_vectors(texts, mode)
+        targets = self.make_targets(labels)
 
-        for word in sentence:
-            count[self.word_to_key[word]] += 1
+        return vectors, targets
 
-        return count.view(1, -1)
+    def make_vectors(self, texts, mode):
+        return getattr(self, mode)(texts)
 
-    def make_target(self, label):
-        return torch.LongTensor([self.label_to_key[label]])
+    def bag_of_words(self, texts):
+        bag = []
+
+        for text in texts:
+            # Count the number of times words appear in a text
+            count = torch.zeros(len(self.word_to_key))
+
+            for word in text:
+                count[self.word_to_key[word]] += 1
+
+            bag.append(count.view(1, -1))
+
+        return bag
+
+    def tf_idf(self, texts):
+        texts = [" ".join(text) for text in texts]
+        return self.vectorizer.fit_transform(texts)
+
+    def make_targets(self, labels):
+        target = lambda label: torch.LongTensor([self.label_to_key[label]])
+        return [target(label).float() for label in labels]

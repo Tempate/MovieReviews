@@ -13,29 +13,23 @@ LEARNING_RATE = 0.00001
 
 
 class Network():
-    def __init__(self, chain):
+    def __init__(self, chain, mode):
         self.chain = chain
+        self.mode = mode
+
         self.model = Classifier(chain)
 
-    def predict(self, sentence):
-        return round(self.forward(sentence)[0].item())
-
-    def forward(self, sentence):
+    def eval(self, data):
+        texts, labels = zip(*data)
+        
+        vectors = self.chain.make_vectors(texts, self.mode)
+        targets = [self.chain.label_to_key[label] for label in labels]
+        
         with torch.no_grad():
-            vector = self.chain.vectorize(sentence)
-            return self.model(vector)
+            predict = lambda v: round(self.model(v)[0].item())
+            guesses = [predict(vector) for vector in vectors]
 
-    def run(self, data):
-        labels = []
-        predictions = []
-
-        for sentence, label in data:
-            prediction = self.predict(sentence)
-            
-            labels.append(self.chain.label_to_key[label])
-            predictions.append(prediction)
-
-        return f1_score(labels, predictions)
+        return f1_score(guesses, targets)
 
     def train(self, training_data, validating_data, epochs):
         optimizer = optim.RMSprop(self.model.parameters(), lr=LEARNING_RATE)
@@ -47,11 +41,10 @@ class Network():
         # We pass several times over the training data.
         # Usually there are between 5 and 30 epochs.
         for epoch in range(epochs):
-            
-            for text, label in training_data:
 
-                vector = self.chain.vectorize(text)
-                target = self.chain.make_target(label).float()
+            vectors, targets = self.chain.vectorize(training_data, self.mode)
+            
+            for vector, target in zip(vectors, targets):
                 
                 # Clear the gradients before each instance
                 self.model.zero_grad()
@@ -65,26 +58,28 @@ class Network():
                 optimizer.step()
 
             loss = self.validate(validating_data, loss_function)
-            score = self.run(validating_data)
+            score = self.eval(validating_data)
 
             losses.append(loss)
             scores.append(score)
 
             print("%d.\tLoss: %.3f\tF1-score: %.3f" % (epoch+1, loss, score))
 
-        plt.plot(list(range(epochs)), losses, 'o', label='Loss')
-        plt.plot(list(range(epochs)), scores, label='F1-score')
+        xs = list(range(epochs))
+
+        plt.plot(xs, losses, 'o', label='Loss')
+        plt.plot(xs, scores, label='F1-score')
+        
         plt.xlabel("Epoch")
         plt.legend()
         plt.show()
 
     def validate(self, data, loss_function):
         loss = 0
+
+        vectors, targets = self.chain.vectorize(data, self.mode)
         
-        for text, label in data:
-            vector = self.chain.vectorize(text)
-            target = self.chain.make_target(label).float()
-            
+        for vector, target in zip(vectors, targets):
             self.model.zero_grad()
             
             # Run the forward pass
