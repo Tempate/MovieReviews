@@ -7,7 +7,8 @@ import regex as re
 import random
 
 
-DATASET = "imdb_dataset.csv"
+DATASET = "imdb/dataset.csv"
+MODES = ["bag_of_words", "tf_idf"]
 
 
 def main():
@@ -18,11 +19,11 @@ def main():
 
     train, valid, test = split(data)
 
-    network = Network(Chain(data))
+    network = Network(Chain(data), options.mode)
 
-    print("Test-set F1-score before training:", network.run(test))
+    print("Test-set's F1-score before training:", network.eval(test))
     network.train(train, valid, options.epochs)
-    print("Test-set F1-score after training:", network.run(test))
+    print("Test-set's F1-score after training:", network.eval(test))
 
 
 def read_commands():
@@ -30,8 +31,15 @@ def read_commands():
     parser.add_option("-d", dest="dataset", help="Dataset to analyze")
     parser.add_option("-e", type="int", default=10, dest="epochs", help="Number of epochs")
     parser.add_option("-s", type="int", default=5000, dest="sample", help="Number of entries to use")
+    parser.add_option("-m", type="int", default=0, dest="mode", help="Bag of words (0), Tf-idf (1)")
 
     options, args = parser.parse_args()
+
+    try:
+        options.mode = MODES[options.mode]
+    except:
+        print("Incorrect mode")
+        exit(0)
 
     with open(options.dataset or DATASET) as dataset:
         options.data = parse(dataset.read().splitlines())
@@ -47,26 +55,13 @@ def parse(dataset):
     for entry in dataset:
         info = FORMAT.match(entry)
         
-        text = info.group(1)
+        text  = info.group(1)
         label = info.group(2)
 
-        # Replace html notation with a space
-        text = re.sub('<.*?>', ' ', text)
+        # Find all the words in the text
+        text = re.findall('\p{L}+', text.lower())
 
-        # Remove single quotes inside words
-        def remove_quotes(match):
-            text = match.group(0)
-            return text.replace('\'', '')
-                
-        text = re.sub('\p{L}\'\p{L}', remove_quotes, text) 
-
-        # Replace weird symbols with a space
-        text = re.sub('[^\p{L}]+', ' ', text)
-
-        # Remove duplicate spaces
-        text = re.sub('\p{Zs}{2,}', ' ', text)
-
-        data.append((text.lower().split(), label))
+        data.append((text, label))
 
     return data
 
