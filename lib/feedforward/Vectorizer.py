@@ -1,25 +1,20 @@
 from sklearn.feature_extraction.text import TfidfVectorizer
-
+from sklearn.feature_extraction.text import CountVectorizer
 import torch
+
+
+mode_to_func = {
+    "bag_of_words": "CountVectorizer",
+    "tf_idf": "TfidfVectorizer"
+}
 
 
 class Vectorizer():
     def __init__(self, data):
         self.label_to_key = {"positive": 0, "negative": 1}
-        self.words_to_keys(data)
 
-        self.num_labels = len(self.label_to_key)
-        self.vocab_size = len(self.word_to_key)
-
-        self.vectorizer = TfidfVectorizer()
-
-    def words_to_keys(self, data):
-        self.word_to_key = {}
-
-        for text, _ in data:
-            for word in text:
-                if word not in self.word_to_key:
-                    self.word_to_key[word] = len(self.word_to_key)
+        self.vocabulary = self.get_unique_words(data)
+        self.vocab_size = len(self.vocabulary)
 
     def vectorize(self, data, mode):
         texts, labels = zip(*data)
@@ -30,26 +25,27 @@ class Vectorizer():
         return vectors, targets
 
     def make_vectors(self, texts, mode):
-        return getattr(self, mode)(texts)
+        vectorizer = globals()[mode_to_func[mode]]
 
-    def bag_of_words(self, texts):
-        bag = []
-
-        for text in texts:
-            # Count the number of times words appear in a text
-            count = torch.zeros(len(self.word_to_key))
-
-            for word in text:
-                count[self.word_to_key[word]] += 1
-
-            bag.append(count.view(1, -1))
-
-        return bag
-
-    def tf_idf(self, texts):
         texts = [" ".join(text) for text in texts]
-        return self.vectorizer.fit_transform(texts)
+
+        counter = vectorizer(vocabulary=self.vocabulary)
+        vectors = counter.fit_transform(texts).toarray()
+
+        to_tensor = lambda vector: torch.from_numpy(vector).float()
+        
+        return [to_tensor(v).view(1,-1) for v in vectors]
 
     def make_targets(self, labels):
-        target = lambda label: torch.LongTensor([self.label_to_key[label]])
+        to_target = lambda label: torch.LongTensor([self.label_to_key[label]])
         return [target(label).float() for label in labels]
+
+    @staticmethod
+    def get_unique_words(data):
+        vocabulary = set()
+
+        for text, _ in data:
+            for word in text:
+                vocabulary.add(word)
+
+        return list(vocabulary)
