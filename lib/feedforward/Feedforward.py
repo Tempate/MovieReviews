@@ -1,5 +1,5 @@
-from lib.Classifier import Classifier
-from lib.Chain import Chain
+from .Classifier import Classifier
+from .Vectorizer import Vectorizer
 
 import torch
 import torch.nn as nn
@@ -12,18 +12,18 @@ from sklearn.metrics import f1_score
 LEARNING_RATE = 0.00001
 
 
-class Network():
-    def __init__(self, chain, mode):
-        self.chain = chain
+class Feedforward():
+    def __init__(self, data, mode):
+        self.vectorizer = Vectorizer(data)
         self.mode = mode
 
-        self.model = Classifier(chain)
+        self.model = Classifier(self.vectorizer)
 
     def eval(self, data):
         texts, labels = zip(*data)
         
-        vectors = self.chain.make_vectors(texts, self.mode)
-        targets = [self.chain.label_to_key[label] for label in labels]
+        vectors = self.vectorizer.make_vectors(texts, self.mode)
+        targets = [self.vectorizer.label_to_key[label] for label in labels]
         
         with torch.no_grad():
             predict = lambda v: round(self.model(v)[0].item())
@@ -42,7 +42,7 @@ class Network():
         # Usually there are between 5 and 30 epochs.
         for epoch in range(epochs):
 
-            vectors, targets = self.chain.vectorize(training_data, self.mode)
+            vectors, targets = self.vectorizer.vectorize(training_data, self.mode)
             
             for vector, target in zip(vectors, targets):
                 
@@ -77,7 +77,7 @@ class Network():
     def validate(self, data, loss_function):
         loss = 0
 
-        vectors, targets = self.chain.vectorize(data, self.mode)
+        vectors, targets = self.vectorizer.vectorize(data, self.mode)
         
         for vector, target in zip(vectors, targets):
             self.model.zero_grad()

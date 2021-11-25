@@ -1,5 +1,5 @@
-from lib.Chain import Chain
-from lib.Network import Network
+from lib.feedforward.Feedforward import Feedforward
+from lib.transformers.Transformers import Transformers
 
 from optparse import OptionParser
 
@@ -8,7 +8,7 @@ import random
 
 
 DATASET = "imdb/dataset.csv"
-MODES = ["bag_of_words", "tf_idf"]
+MODES = ["bag_of_words", "tf_idf", "transformers"]
 
 
 def main():
@@ -19,11 +19,16 @@ def main():
 
     train, valid, test = split(data)
 
-    network = Network(Chain(data), options.mode)
+    if options.mode == "transformers":
+        transformers = Transformers()
+        transformers.train(train, valid)
+        
+    else:
+        network = Feedforward(data, options.mode)
 
-    print("Test-set's F1-score before training:", network.eval(test))
-    network.train(train, valid, options.epochs)
-    print("Test-set's F1-score after training:", network.eval(test))
+        print("Test-set's F1-score before training: %.3f" % network.eval(test))
+        network.train(train, valid, options.epochs)
+        print("Test-set's F1-score after training: %.3f" % network.eval(test))
 
 
 def read_commands():
@@ -48,20 +53,12 @@ def read_commands():
 
 
 def parse(dataset):
-    FORMAT = re.compile('"(.+)",(\S+)')
-    
     data = []
 
     for entry in dataset:
-        info = FORMAT.match(entry)
-        
-        text  = info.group(1)
-        label = info.group(2)
 
-        # Find all the words in the text
-        text = re.findall('\p{L}+', text.lower())
-
-        data.append((text, label))
+        info = re.findall('\p{L}+', entry.lower())
+        data.append((info[:-1], info[-1]))
 
     return data
 

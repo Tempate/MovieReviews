@@ -3,7 +3,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 import torch
 
 
-class Chain():
+class Vectorizer():
     def __init__(self, data):
         self.label_to_key = {"positive": 0, "negative": 1}
         self.words_to_keys(data)
@@ -16,15 +16,10 @@ class Chain():
     def words_to_keys(self, data):
         self.word_to_key = {}
 
-        for sentence, label in data:
-            for word in sentence:
-                if word in self.word_to_key:
-                    continue
-
-                try:
+        for text, _ in data:
+            for word in text:
+                if word not in self.word_to_key:
                     self.word_to_key[word] = len(self.word_to_key)
-                except KeyError:
-                    pass
 
     def vectorize(self, data, mode):
         texts, labels = zip(*data)
