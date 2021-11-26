@@ -9,7 +9,10 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import f1_score
 
 
-LEARNING_RATE = 0.00001
+LEARNING_RATE = {
+    "bag_of_words": 1e-5,
+    "tf_idf": 1e-4
+}
 
 
 class Feedforward():
@@ -32,7 +35,7 @@ class Feedforward():
         return f1_score(guesses, targets)
 
     def train(self, training_data, validating_data, epochs):
-        optimizer = optim.RMSprop(self.model.parameters(), lr=LEARNING_RATE)
+        optimizer = optim.RMSprop(self.model.parameters(), lr=LEARNING_RATE[self.mode])
         loss_function = nn.BCELoss()
 
         losses = []
@@ -65,7 +68,11 @@ class Feedforward():
 
             print("%d.\tLoss: %.3f\tF1-score: %.3f" % (epoch+1, loss, score))
 
-        xs = list(range(epochs))
+            # Prevent over-fitting
+            if len(losses) >= 2 and losses[-1] - losses[-2] >= 0:
+                break 
+
+        xs = list(range(epoch+1))
 
         plt.plot(xs, losses, 'o', label='Loss')
         plt.plot(xs, scores, label='F1-score')
