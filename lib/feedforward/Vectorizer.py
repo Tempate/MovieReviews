@@ -38,7 +38,7 @@ class Vectorizer():
 
     def make_targets(self, labels):
         to_target = lambda label: torch.LongTensor([self.label_to_key[label]])
-        return [target(label).float() for label in labels]
+        return [to_target(label).float() for label in labels]
 
     @staticmethod
     def get_unique_words(data):
