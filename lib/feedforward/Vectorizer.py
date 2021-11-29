@@ -11,8 +11,6 @@ mode_to_func = {
 
 class Vectorizer():
     def __init__(self, data):
-        self.label_to_key = {"positive": 0, "negative": 1}
-
         self.vocabulary = self.get_unique_words(data)
         self.vocab_size = len(self.vocabulary)
 
@@ -37,7 +35,7 @@ class Vectorizer():
         return [to_tensor(v).view(1,-1) for v in vectors]
 
     def make_targets(self, labels):
-        to_target = lambda label: torch.LongTensor([self.label_to_key[label]])
+        to_target = lambda label: torch.LongTensor([int(label)])
         return [to_target(label).float() for label in labels]
 
     @staticmethod

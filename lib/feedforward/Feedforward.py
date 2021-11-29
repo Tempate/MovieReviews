@@ -10,8 +10,8 @@ from sklearn.metrics import f1_score
 
 
 LEARNING_RATE = {
-    "bag_of_words": 1e-5,
-    "tf_idf": 1e-4
+    "bag_of_words": 2e-5,
+    "tf_idf": 5e-5
 }
 
 
@@ -26,7 +26,7 @@ class Feedforward():
         texts, labels = zip(*data)
         
         vectors = self.vectorizer.make_vectors(texts, self.mode)
-        targets = [self.vectorizer.label_to_key[label] for label in labels]
+        targets = list(map(int, labels))
         
         with torch.no_grad():
             predict = lambda v: round(self.model(v)[0].item())

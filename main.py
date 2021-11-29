@@ -57,8 +57,8 @@ def parse(dataset):
 
     for entry in dataset:
 
-        info = re.findall('\p{L}+', entry.lower())
-        data.append((info[:-1], info[-1]))
+        text = re.findall('\p{L}+', entry.lower())
+        data.append((text, entry[-1]))
 
     return data
 
