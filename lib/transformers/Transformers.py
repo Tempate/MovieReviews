@@ -9,8 +9,6 @@ from tqdm import tqdm
 
 MODEL = 'bert-base-multilingual-uncased'
 
-label_to_key = {"positive": 0, "negative": 1}
-
 
 class Transformers:
 
@@ -26,7 +24,7 @@ class Transformers:
 
         for text, label in data:
             texts.append("[CLS] " + " ".join(text))
-            labels.append(label_to_key[label])
+            labels.append(int(label))
 
         vectors = self.tokenizer(texts, 
                                  return_tensors='pt', 
@@ -68,6 +66,27 @@ class Transformers:
                 loss = outputs.loss
                 loss.backward()
                 optim.step()
+
+    def validate(self, data):
+        dataset = Dataset(self.vectorize(training_data))
+        loader = torch.utils.data.DataLoader(dataset, batch_size=16, shuffle=True)
+
+        # We run the computations in the GPU if possible
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.to(device)
+
+        input_ids      = dataset['input_ids'].to(device)
+        token_type_ids = dataset['token_type_ids'].to(device)
+        attention_mask = dataset['attention_mask'].to(device)
+        labels         = dataset['labels'].to(device)        
+
+
+        outputs = self.model(input_ids, 
+                             token_type_ids=token_type_ids, 
+                             attention_mask=attention_mask,
+                             labels=labels)
+
+        print(outputs.loss.item())
 
 
 class Dataset(torch.utils.data.Dataset):
