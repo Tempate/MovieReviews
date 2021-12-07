@@ -1,4 +1,9 @@
-from transformers import BertTokenizer, BertForSequenceClassification
+from .ReviewDataset import ReviewDataset
+from .Classifier import Classifier
+
+from torch.utils.data import DataLoader
+
+from transformers import BertTokenizer
 from transformers import AdamW
 
 import torch
@@ -10,91 +15,90 @@ from tqdm import tqdm
 MODEL = 'bert-base-multilingual-uncased'
 
 
+MAX_LENGTH  = 128
+BATCH_SIZE  = 16
+NUM_WORKERS = 2
+
+LEARNING_RATE = 2e-5
+
+
 class Transformers:
 
     def __init__(self):
-        self.model = BertForSequenceClassification.from_pretrained(MODEL)
         self.tokenizer = BertTokenizer.from_pretrained(MODEL)
+        self.model = Classifier(MODEL)
 
-    def vectorize(self, data):
+    def create_data_loader(self, data):
         texts, labels = zip(*data)
 
-        texts = []
-        labels = []
+        dataset = ReviewDataset(
+            review=np.array(texts),
+            target=np.array(labels),
+            tokenizer=self.tokenizer,
+            max_length=max_length
+        )
 
-        for text, label in data:
-            texts.append("[CLS] " + " ".join(text))
-            labels.append(int(label))
+        loader = DataLoader(dataset, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS)
 
-        vectors = self.tokenizer(texts, 
-                                 return_tensors='pt', 
-                                 max_length=128, 
-                                 truncation=True, 
-                                 padding="max_length")
+        return loader
 
-        vectors['labels'] = torch.LongTensor([labels]).T
+    def train(self, train_data, valid_data, epochs):
+        optimizer = AdamW(self.model.parameters(), lr=LEARNING_RATE, correct_bias=False)
+        loss_function = nn.BCELoss()
 
-        return vectors
+        # We get the model into training mode
+        model = self.model.train()
 
-    def train(self, training_data, validation_data):
-        dataset = Dataset(self.vectorize(training_data))
-        loader = torch.utils.data.DataLoader(dataset, batch_size=16, shuffle=True)
+        losses = []
+        scores = []
 
-        # We run the computations in the GPU if possible
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        for epoch in range(EPOCHS):
+            for batch in self.create_data_loader(train_data):
 
-        self.model.to(device)
-        self.model.train()
+                outputs = model(input_ids=batch['input_ids'], 
+                                attention_mask=batch['attention_mask'])
 
-        optim = AdamW(self.model.parameters(), lr=5e-5)
-
-        for epoch in range(2):
-            for batch in tqdm(loader, leave=True):
+                outputs = torch.flatten(outputs)
+                guesses = torch.round(outputs)
                 
-                optim.zero_grad()
-
-                input_ids      = batch['input_ids'].to(device)
-                token_type_ids = batch['token_type_ids'].to(device)
-                attention_mask = batch['attention_mask'].to(device)
-                labels         = batch['labels'].to(device)
-
-                outputs = self.model(input_ids, 
-                                     token_type_ids=token_type_ids, 
-                                     attention_mask=attention_mask,
-                                     labels=labels)
-
-                loss = outputs.loss
+                targets = batch['targets'].float()
+                
+                loss = loss_function(outputs, targets)
                 loss.backward()
-                optim.step()
 
-    def validate(self, data):
-        dataset = Dataset(self.vectorize(training_data))
-        loader = torch.utils.data.DataLoader(dataset, batch_size=16, shuffle=True)
+                nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
-        # We run the computations in the GPU if possible
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model.to(device)
+                optimizer.step()
+                optimizer.zero_grad()
 
-        input_ids      = dataset['input_ids'].to(device)
-        token_type_ids = dataset['token_type_ids'].to(device)
-        attention_mask = dataset['attention_mask'].to(device)
-        labels         = dataset['labels'].to(device)        
+            score, loss = self.validate(valid_data, loss_function)
 
+            losses.append(loss)
+            scores.append(score)
 
-        outputs = self.model(input_ids, 
-                             token_type_ids=token_type_ids, 
-                             attention_mask=attention_mask,
-                             labels=labels)
+        return scores[-1], losses[-1]
 
-        print(outputs.loss.item())
+        def validate(self, data):
+            model = self.model.eval()
 
+            losses = []
+            scores = []
 
-class Dataset(torch.utils.data.Dataset):
-    def __init__(self, encodings):
-        self.encodings = encodings
+            with torch.no_grad():
+                for batch in self.create_data_loader(data):
+                    
+                    outputs = model(
+                        input_ids=batch["input_ids"],
+                        attention_mask=batch["attention_mask"]
+                    )
 
-    def __len__(self):
-        return self.encodings.input_ids.shape[0]
+                    outputs = torch.flatten(outputs)
+                    guesses = torch.round(outputs)
 
-    def __getitem__(self, index):
-        return {key: tensor[index] for key, tensor in self.encodings.items()}
+                    targets = batch['targets'].float()
+                    loss = loss_function(outputs, targets)
+
+                    losses.append(loss.item())
+                    scores.append(torch.sum(guesses == targets))
+
+            return np.mean(scores), np.mean(losses)

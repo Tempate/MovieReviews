@@ -21,7 +21,7 @@ def main():
 
     if options.mode == "transformers":
         transformers = Transformers()
-        transformers.train(train, valid)
+        transformers.train(train, valid, options.epochs)
         
     # Feedforward
     elif len(data) <= 50:
