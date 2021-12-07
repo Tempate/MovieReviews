@@ -32,10 +32,11 @@ class Feedforward():
             predict = lambda v: round(self.model(v)[0].item())
             guesses = [predict(vector) for vector in vectors]
 
-        return f1_score(guesses, targets)
+        return sum([1 for guess, target in zip(guesses, targets) if guess == target]) 
+        # f1_score(guesses, targets, zero_division=0)
 
-    def train(self, training_data, validating_data, epochs):
-        optimizer = optim.RMSprop(self.model.parameters(), lr=LEARNING_RATE[self.mode])
+    def train(self, train_data, valid_data, epochs, patience, verbose=False):
+        optimizer = optim.NAdam(self.model.parameters(), lr=LEARNING_RATE[self.mode])
         loss_function = nn.BCELoss()
 
         losses = []
@@ -45,7 +46,7 @@ class Feedforward():
         # Usually there are between 5 and 30 epochs.
         for epoch in range(epochs):
 
-            vectors, targets = self.vectorizer.vectorize(training_data, self.mode)
+            vectors, targets = self.vectorizer.vectorize(train_data, self.mode)
             
             for vector, target in zip(vectors, targets):
                 
@@ -60,26 +61,26 @@ class Feedforward():
                 loss.backward()
                 optimizer.step()
 
-            loss = self.validate(validating_data, loss_function)
-            score = self.eval(validating_data)
+            loss = self.validate(valid_data, loss_function)
+            score = self.eval(valid_data)
 
             losses.append(loss)
             scores.append(score)
 
-            print("%d.\tLoss: %.3f\tF1-score: %.3f" % (epoch+1, loss, score))
+            if verbose:
+                print("%d.\tLoss: %.3f\tF1-score: %.3f" % (epoch+1, loss, score))
 
             # Prevent over-fitting
             if len(losses) >= 2 and losses[-1] - losses[-2] >= 0:
-                break 
+                patience -= 1
 
-        xs = list(range(epoch+1))
+            if patience <= 0:
+                break
 
-        plt.plot(xs, losses, 'o', label='Loss')
-        plt.plot(xs, scores, label='F1-score')
-        
-        plt.xlabel("Epoch")
-        plt.legend()
-        plt.show()
+        if verbose:
+            self.plot(scores, losses)
+
+        return scores[-1], losses[-1]
 
     def validate(self, data, loss_function):
         loss = 0
@@ -96,3 +97,13 @@ class Feedforward():
             loss += loss_function(log_probs, target).item()
 
         return loss / len(data)
+
+    def plot(self, scores, losses):
+        xs = list(range(len(scores)+1))
+
+        plt.plot(xs, losses, 'o', label='Loss')
+        plt.plot(xs, scores, label='F1-score')
+        
+        plt.xlabel("Epoch")
+        plt.legend()
+        plt.show()
