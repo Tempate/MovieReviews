@@ -32,8 +32,9 @@ class Feedforward():
             predict = lambda v: round(self.model(v)[0].item())
             guesses = [predict(vector) for vector in vectors]
 
-        return sum([1 for guess, target in zip(guesses, targets) if guess == target]) 
-        # f1_score(guesses, targets, zero_division=0)
+        correct = sum(guess == target for guess, target in zip(guesses, targets))
+        
+        return correct / len(targets)
 
     def train(self, train_data, valid_data, epochs, patience, verbose=False):
         optimizer = optim.NAdam(self.model.parameters(), lr=LEARNING_RATE[self.mode])
@@ -99,10 +100,10 @@ class Feedforward():
         return loss / len(data)
 
     def plot(self, scores, losses):
-        xs = list(range(len(scores)+1))
+        xs = list(range(len(scores)))
 
-        plt.plot(xs, losses, 'o', label='Loss')
         plt.plot(xs, scores, label='F1-score')
+        plt.plot(xs, losses, 'o', label='Loss')
         
         plt.xlabel("Epoch")
         plt.legend()
