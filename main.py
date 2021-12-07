@@ -23,11 +23,32 @@ def main():
         transformers = Transformers()
         transformers.train(train, valid)
         
+    # Feedforward
+    elif len(data) <= 50:
+        scores = []
+
+        for n in range(5):
+            score = 0
+
+            for i in range(len(data)):
+                train = data[:i] + data[i+1:]
+                valid = [data[i]]
+                
+                network = Feedforward(data, options.mode)
+                score += network.train(train, valid, options.epochs, 10)[0]
+
+            score /= len(data)
+            scores.append(score)
+
+            print("[%d]\t%.4f" % (n + 1, score))
+
+        print("Average score: %.4f" % (sum(scores) / 5))
+
     else:
         network = Feedforward(data, options.mode)
 
         print("Test-set's F1-score before training: %.3f" % network.eval(test))
-        network.train(train, valid, options.epochs)
+        network.train(train, valid, options.epochs, 1, verbose=True)
         print("Test-set's F1-score after training: %.3f" % network.eval(test))
 
 
@@ -66,9 +87,9 @@ def parse(dataset):
 def split(data):
     chunk = len(data) // 5
 
-    train = data[:chunk*3]
-    valid = data[chunk*3:chunk*4]
-    test  = data[chunk*4:]
+    train = data[:3 * chunk]
+    valid = data[3 * chunk:4 * chunk]
+    test  = data[4 * chunk:]
 
     return train, valid, test
 
