@@ -79,7 +79,7 @@ def parse(dataset):
     for entry in dataset:
 
         text = re.findall('\p{L}+', entry.lower())
-        data.append((text, entry[-1]))
+        data.append((" ".join(text), int(entry[-1])))
 
     return data
 

@@ -23,10 +23,9 @@ class Feedforward():
         self.model = Classifier(self.vectorizer)
 
     def eval(self, data):
-        texts, labels = zip(*data)
+        texts, targets = zip(*data)
         
         vectors = self.vectorizer.make_vectors(texts, self.mode)
-        targets = list(map(int, labels))
         
         with torch.no_grad():
             predict = lambda v: round(self.model(v)[0].item())

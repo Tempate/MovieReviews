@@ -24,9 +24,7 @@ class Vectorizer():
 
     def make_vectors(self, texts, mode):
         vectorizer = globals()[mode_to_func[mode]]
-
-        texts = [" ".join(text) for text in texts]
-
+        
         counter = vectorizer(vocabulary=self.vocabulary)
         vectors = counter.fit_transform(texts).toarray()
 
@@ -35,7 +33,7 @@ class Vectorizer():
         return [to_tensor(v).view(1,-1) for v in vectors]
 
     def make_targets(self, labels):
-        to_target = lambda label: torch.LongTensor([int(label)])
+        to_target = lambda label: torch.LongTensor([label])
         return [to_target(label).float() for label in labels]
 
     @staticmethod
