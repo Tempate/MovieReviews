@@ -9,7 +9,7 @@ from transformers import AdamW
 import torch
 import torch.nn as nn
 
-from tqdm import tqdm
+import numpy as np
 
 
 MODEL = 'bert-base-multilingual-uncased'
@@ -35,7 +35,7 @@ class Transformers:
             review=np.array(texts),
             target=np.array(labels),
             tokenizer=self.tokenizer,
-            max_length=max_length
+            max_length=MAX_LENGTH
         )
 
         loader = DataLoader(dataset, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS)
@@ -52,7 +52,7 @@ class Transformers:
         losses = []
         scores = []
 
-        for epoch in range(EPOCHS):
+        for epoch in range(epochs):
             for batch in self.create_data_loader(train_data):
 
                 outputs = model(input_ids=batch['input_ids'], 
