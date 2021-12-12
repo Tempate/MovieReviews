@@ -1,4 +1,4 @@
-from .Classifier import Classifier
+from ..Classifier import Classifier
 from .Vectorizer import Vectorizer
 
 import torch
@@ -20,7 +20,7 @@ class Feedforward():
         self.vectorizer = Vectorizer(data)
         self.mode = mode
 
-        self.model = Classifier(self.vectorizer)
+        self.model = Classifier(self.vectorizer.vocab_size)
 
     def eval(self, data):
         texts, targets = zip(*data)

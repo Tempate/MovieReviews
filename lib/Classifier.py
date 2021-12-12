@@ -2,10 +2,10 @@ import torch.nn as nn
 
 
 class Classifier(nn.Module):
-    def __init__(self, chain):
+    def __init__(self, input_size):
         super(Classifier, self).__init__()
 
-        self.function1 = nn.Linear(chain.vocab_size, 16)
+        self.function1 = nn.Linear(input_size, 16)
         self.activation1 = nn.ReLU()
 
         self.function2 = nn.Linear(16, 16)
