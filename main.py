@@ -19,31 +19,14 @@ def main():
 
     train, valid, test = split(data)
 
-    if options.mode == "transformers":
-        transformers = Transformers()
-        transformers.train(train, valid, options.epochs)
-        
     # Feedforward
-    elif len(data) <= 50:
-        scores = []
+    if len(data) <= 50:
+        leave_one_out(data, options)
 
-        for n in range(5):
-            score = 0
-
-            for i in range(len(data)):
-                train = data[:i] + data[i+1:]
-                valid = [data[i]]
-                
-                network = Feedforward(data, options.mode)
-                score += network.train(train, valid, options.epochs, 10)[0]
-
-            score /= len(data)
-            scores.append(score)
-
-            print("[%d]\t%.4f" % (n + 1, score))
-
-        print("Average score: %.4f" % (sum(scores) / 5))
-
+    elif options.mode == "transformers":
+        transformers = Transformers(data)
+        transformers.train(train, valid, options.epochs, 100)
+        
     else:
         network = Feedforward(data, options.mode)
 
@@ -93,6 +76,30 @@ def split(data):
 
     return train, valid, test
 
+
+def leave_one_out(data, options):
+    scores = []
+
+    for n in range(5):
+        score = 0
+
+        for i in range(len(data)):
+            train = data[:i] + data[i+1:]
+            valid = [data[i]]
+
+            if options.mode == "transformers":
+                network = Transformers(data)
+            else:
+                network = Feedforward(data, options.mode)
+
+            score += network.train(train, valid, options.epochs, 10)[0]
+
+        score /= len(data)
+        scores.append(score)
+
+        print("[%d]\t%.4f" % (n + 1, score))
+
+    print("Average score: %.4f" % (sum(scores) / 5))
 
 if __name__ == "__main__":
     main()
