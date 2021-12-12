@@ -1,104 +1,86 @@
-from .ReviewDataset import ReviewDataset
-from .Classifier import Classifier
+from .Vectorizer import Vectorizer
 
 from torch.utils.data import DataLoader
-
-from transformers import BertTokenizer
-from transformers import AdamW
+from sklearn.metrics import f1_score
 
 import torch
 import torch.nn as nn
+import torch.optim as optim
 
 import numpy as np
 
 
 MODEL = 'bert-base-multilingual-uncased'
 
-
-MAX_LENGTH  = 128
-BATCH_SIZE  = 16
-NUM_WORKERS = 2
-
-LEARNING_RATE = 2e-5
+LEARNING_RATE = 5e-3
 
 
 class Transformers:
 
-    def __init__(self):
-        self.tokenizer = BertTokenizer.from_pretrained(MODEL)
-        self.model = Classifier(MODEL)
+    def __init__(self, data):
+        self.vectorizer = Vectorizer(MODEL)
+        self.vectorizer.vectorize(data)
 
-    def create_data_loader(self, data):
-        texts, labels = zip(*data)
-
-        dataset = ReviewDataset(
-            review=np.array(texts),
-            target=np.array(labels),
-            tokenizer=self.tokenizer,
-            max_length=MAX_LENGTH
-        )
-
-        loader = DataLoader(dataset, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS)
-
-        return loader
+        self.model = Classifier(self.vectorizer.model.config.hidden_size)
 
     def train(self, train_data, valid_data, epochs):
-        optimizer = AdamW(self.model.parameters(), lr=LEARNING_RATE, correct_bias=False)
+        optimizer = optim.NAdam(self.model.parameters(), lr=LEARNING_RATE)
         loss_function = nn.BCELoss()
 
-        # We get the model into training mode
-        model = self.model.train()
-
-        losses = []
-        scores = []
-
+        # We pass several times over the training data.
+        # Usually there are between 5 and 30 epochs.
         for epoch in range(epochs):
-            for batch in self.create_data_loader(train_data):
+            for review in train_data:
+              for batch in self.vectorizer.data_loader([review]):
+                  
+                  vector = self.vectorizer.vectors[batch["text"][0]]
+                  target = batch["targets"].float()
 
-                outputs = model(input_ids=batch['input_ids'], 
-                                attention_mask=batch['attention_mask'])
+                  # We clear the gradients before each instance
+                  self.model.zero_grad()
 
-                outputs = torch.flatten(outputs)
-                guesses = torch.round(outputs)
-                
-                targets = batch['targets'].float()
-                
-                loss = loss_function(outputs, targets)
-                loss.backward()
+                  # We run the forward pass
+                  log_probs = self.model(vector)
 
-                nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                  # We compute the loss, gradients, and update the parameters
+                  loss = loss_function(log_probs, target)
+                  loss.backward()
 
-                optimizer.step()
-                optimizer.zero_grad()
+                  optimizer.step()
 
             score, loss = self.validate(valid_data, loss_function)
 
-            losses.append(loss)
-            scores.append(score)
+            print(f"{epoch + 1}.\tLoss: {loss}\tF1-Score: {score}")
 
-        return scores[-1], losses[-1]
+        return score, loss
 
-        def validate(self, data):
-            model = self.model.eval()
+    def validate(self, data, loss_function):
+        targets = []
+        guesses = []
 
-            losses = []
-            scores = []
+        loss = 0
+
+        batches = self.vectorizer.data_loader(data)
+        
+        for batch in batches:
+
+            vector = self.vectorizer.vectors[batch["text"][0]]
+            
+            target = batch["targets"].float()
+            targets.append(target)
 
             with torch.no_grad():
-                for batch in self.create_data_loader(data):
-                    
-                    outputs = model(
-                        input_ids=batch["input_ids"],
-                        attention_mask=batch["attention_mask"]
-                    )
+                # We run the forward pass
+                output = self.model(vector)
 
-                    outputs = torch.flatten(outputs)
-                    guesses = torch.round(outputs)
+                # We save our prediction
+                guess = torch.round(torch.flatten(output))
+                guesses.append(guess)
+                
+                # We calculate the loss
+                loss += loss_function(output, target).item()
 
-                    targets = batch['targets'].float()
-                    loss = loss_function(outputs, targets)
+        score = f1_score(targets, guesses, zero_division=1)
+        loss /= len(batches)
 
-                    losses.append(loss.item())
-                    scores.append(torch.sum(guesses == targets))
-
-            return np.mean(scores), np.mean(losses)
+        return score, loss

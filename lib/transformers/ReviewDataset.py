@@ -31,7 +31,7 @@ class ReviewDataset(Dataset):
     )
 
     return {
-      'review_text': review,
+      'text': review,
       'targets': torch.tensor(self.target[item], dtype=torch.long),
 
       'attention_mask': encoding['attention_mask'].flatten(),
